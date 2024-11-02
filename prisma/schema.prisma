@@ -1,0 +1,156 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  AGENT
+  VENDOR
+  CLIENT
+}
+
+enum TransactionType {
+  SEND
+  RECEIVE
+  DEPOSIT
+  WITHDRAW
+  PURCHASE
+}
+
+enum BillStatus {
+  PENDING
+  PAID
+  OVERDUE
+}
+
+enum NotificationStatus {
+  UNREAD
+  READ
+}
+
+enum PersonalInfoStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+model CreditPurchaseTransaction {
+  id                 String       @id @default(uuid()) @db.Uuid
+  transactionId      String       @unique @db.Uuid
+  receiverName       String?
+  receiverPhoneNumber String?
+  receiverEmail      String?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  transaction        Transaction  @relation(fields: [transactionId], references: [id])
+}
+
+model User {
+  id            String         @id @default(uuid()) @db.Uuid
+  name          String
+  email         String?        @unique
+  password      String
+  phoneNumber   String         @unique
+  isActive      Boolean        @default(true)
+  role          UserRole       @default(CLIENT)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  transactions  Transaction[]  @relation("Sender")
+  received      Transaction[]  @relation("Receiver")
+  bills         Bill[]
+  account       Account?
+  notifications Notification[]
+  contacts      Contact[]
+  personalInfo  PersonalInfo?
+}
+
+model Account {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @unique @db.Uuid
+  balance   Float    @default(0)
+  currency  String   @default("FCFA")
+  qrCode    String   @unique
+  isActive  Boolean  @default(true)
+  plafond   Decimal? @default(500000) @db.Decimal(20, 2)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model Transaction {
+  id              String                    @id @default(uuid()) @db.Uuid
+  amount          Float
+  senderId        String                    @db.Uuid
+  receiverId      String?                   @db.Uuid
+  feeAmount       Decimal                   @default(0.00) @db.Decimal(20, 2)
+  currency        String                    @default("FCFA")
+  transactionType TransactionType
+  status          TransactionStatus
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+  sender          User                      @relation("Sender", fields: [senderId], references: [id])
+  receiver        User?                     @relation("Receiver", fields: [receiverId], references: [id])
+  creditPurchase  CreditPurchaseTransaction?
+}
+
+model Bill {
+  id        String     @id @default(uuid()) @db.Uuid
+  userId    String     @db.Uuid
+  amount    Float
+  currency  String     @default("FCFA")
+  type      String
+  dueDate   DateTime
+  status    BillStatus
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  user      User       @relation(fields: [userId], references: [id])
+}
+
+model Notification {
+  id        String             @id @default(uuid()) @db.Uuid
+  userId    String             @db.Uuid
+  message   String
+  isRead    NotificationStatus @default(UNREAD)
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+  user      User              @relation(fields: [userId], references: [id])
+}
+
+model Contact {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @db.Uuid
+  name        String
+  phoneNumber String
+  email       String?
+  favorite    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id])
+}
+
+model PersonalInfo {
+  id                 String             @id @default(uuid()) @db.Uuid
+  userId             String             @unique @db.Uuid
+  documentType       String
+  idCardFrontPhoto   String?
+  idCardBackPhoto    String?
+  verificationStatus PersonalInfoStatus
+  verifiedAt         DateTime?
+  verificationMethod String?
+  rejectionReason    String?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  user               User               @relation(fields: [userId], references: [id])
+}
